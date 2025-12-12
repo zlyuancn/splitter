@@ -44,7 +44,7 @@
 
 - 若未提供 `FlushChunkHandler`，将使用 `defaultFlushChunkHandler`，即打印到标准输出：
   ```go
-  fmt.Println(chunkSn, startIdx, endIdx, string(data))
+  fmt.Println(args.ChunkSn, args.StartDataSn, args.EndDataSn, string(args.Data))
   ```
 
 ---
@@ -65,8 +65,8 @@ func main() {
     conf := splitter.Conf{
         Delim:          []byte(","),
         ChunkSizeLimit: 16,
-        FlushChunkHandler: func(sn int, start, end int64, data []byte) {
-            println("Chunk", sn, "values", start, "to", end, ":", string(data))
+        FlushChunkHandler: func(args *splitter.FlushChunkArgs) {
+            println("Chunk", args.ChunkSn, "values", args.StartDataSn, "to", args.EndDataSn, ":", string(args.Data))
         },
         ValueFilter: func(v []byte) []byte {
             if string(v) == "banana" {
@@ -117,7 +117,6 @@ type Conf struct {
     FlushChunkHandler     FlushChunkHandler // 块处理回调函数（必提供或使用默认）
     ValueMaxScanSizeLimit int               // 单个 value 最大扫描长度（防 DoS），默认最小为 4096
     ValueFilter           ValueFilter       // 可选：对每个 value 进行过滤或转换
-    StartChunkSn          int               // 第一个chunkSn    
 }
 ```
 
@@ -126,13 +125,23 @@ type Conf struct {
 #### `FlushChunkHandler`
 
 ```go
-type FlushChunkHandler func(chunkSn int, startIdx, endIdx int64, data []byte)
+type FlushChunkArgs struct {
+    ChunkSn     int    // chunk sn
+    StartDataSn int64  // 第一个数据的 sn
+    EndDataSn   int64  // 最后一个数据的sn
+    Data        []byte // 数据
+    ScanByteNum int64  // 已扫描rd的字节数
+}
+
+// flush Chunk 函数
+type FlushChunkHandler func(args *FlushChunkArgs)
 ```
 
-- `chunkSn`：块序号（默认从 0 开始递增）
-- `startIdx`：该块中第一个 value 的全局索引（从 0 开始）
-- `endIdx`：该块中最后一个 value 的全局索引
-- `data`：该块的原始字节数据（**不包含末尾分隔符**）
+- `ChunkSn`：块序号（默认从 0 开始递增）
+- `StartDataSn`：该块中第一个 value 的全局索引（从 0 开始）
+- `EndDataSn`：该块中最后一个 value 的全局索引
+- `Data`：该块的原始字节数据（**不包含末尾分隔符**）
+- `ScanByteNum` 传入的 rd(io.Reader) 被扫描了多少字节
 
 ⚠️ 注意：`data` 是内部缓冲区的**副本**，可安全持有或修改。
 

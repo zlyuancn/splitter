@@ -10,7 +10,10 @@ import (
 var ErrValueReaderMaxScanSizeLimit = errors.New("ValueReader valueMaxScanSizeLimit err")
 
 type ValueReader interface {
+	// 下一个value
 	Next() ([]byte, error)
+	// 获取已扫描字节数
+	GetScanByteNum() int64
 }
 
 type valueReader struct {
@@ -21,7 +24,12 @@ type valueReader struct {
 	delim                 []byte
 	valueMaxScanSizeLimit int // 限制value的长度
 
-	isEOF bool
+	scanByteNum int64 // 已扫描字节数
+	isEOF       bool
+}
+
+func (v *valueReader) GetScanByteNum() int64 {
+	return v.scanByteNum
 }
 
 // 读取数据直到碰到一个分隔符, 输出数据不包含分隔符. 注意使用者要主动对返回的[]byte进行copy, 否则下次调用此函数会改变它!
@@ -45,6 +53,7 @@ func (v *valueReader) Next() ([]byte, error) {
 			return nil, err
 		}
 
+		v.scanByteNum++
 		v.readBuffer[l] = b
 		l++
 		bs := v.readBuffer[:l]
