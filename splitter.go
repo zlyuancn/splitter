@@ -8,6 +8,9 @@ import (
 	"sync/atomic"
 )
 
+var ErrSplitterIsStarted = errors.New("splitter is started")
+var ErrSplitterIsStopped = errors.New("splitter is stopped")
+
 const (
 	MinChunkSizeLimit        = 16
 	MinValueMaxScanSizeLimit = 4096
@@ -26,6 +29,14 @@ type FlushChunkHandler func(args *FlushChunkArgs)
 
 // 值过滤器, 返回空字节或者nil则抛弃该value
 type ValueFilter func(value []byte) []byte
+
+type Splitter interface {
+	// 从 io.Reader 中读取数据，按配置进行分片和处理。
+	// 仅允许调用一次，重复调用将返回错误。
+	RunSplit(rd io.Reader) error
+	// 停止
+	Stop()
+}
 
 type Conf struct {
 	Delim                 []byte            // 分隔符
@@ -50,7 +61,7 @@ type splitter struct {
 	stopped int32 // 是否已停止
 }
 
-func NewSplitter(conf Conf) *splitter {
+func NewSplitter(conf Conf) Splitter {
 	if len(conf.Delim) == 0 {
 		panic("delim must not be empty")
 	}
@@ -72,11 +83,11 @@ func NewSplitter(conf Conf) *splitter {
 	return s
 }
 
-// 分隔
-func (s *splitter) Split(rd io.Reader) error {
+// 运行分隔
+func (s *splitter) RunSplit(rd io.Reader) error {
 	// 防止重复调用
 	if atomic.AddInt32(&s.started, 1) != 1 {
-		return errors.New("Repeat Call Split")
+		return ErrSplitterIsStarted
 	}
 
 	// 创建值读取器
@@ -84,7 +95,7 @@ func (s *splitter) Split(rd io.Reader) error {
 
 	for {
 		if atomic.LoadInt32(&s.stopped) > 0 {
-			return nil
+			return ErrSplitterIsStopped
 		}
 
 		value, err := vr.Next() // 获取下一个值

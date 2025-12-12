@@ -77,7 +77,7 @@ func main() {
     }
 
     s := splitter.NewSplitter(conf)
-    err := s.Split(input)
+    err := s.RunSplit(input)
     if err != nil {
         panic(err)
     }
@@ -98,9 +98,9 @@ Chunk 1 values 3 to 3 : cherry
 
 ```go
 type Splitter interface {
-    // Split 从 io.Reader 中读取数据，按配置进行分片和处理。
+    // 从 io.Reader 中读取数据，按配置进行分片和处理。
     // 仅允许调用一次，重复调用将返回错误。
-    Split(rd io.Reader) error
+	RunSplit(rd io.Reader) error
 
     // Stop 请求停止处理。注意：无法中断当前正在读取的 value，
     // 但会在完成当前 value 后退出。
@@ -172,7 +172,7 @@ type ValueFilter func(value []byte) []byte
 ## 错误处理
 
 - `Delim` 为空 → `panic`
-- 重复调用 `Split()` → 返回 `"Repeat Call Split"` 错误
+- 重复调用 `RunSplit()` → 返回 `"splitter is started"` 错误
 - 单个 value 扫描超长 → 返回 `"ValueReader valueMaxScanSizeLimit err"` 错误
 - 其他 I/O 错误 → 直接透传
 
@@ -180,6 +180,6 @@ type ValueFilter func(value []byte) []byte
 
 ## 注意事项
 
-- **线程安全**：`Splitter` 实例**是线程安全的**，但是不应在多个 goroutine 中并发调用 `Split()`，因为它只能调用一次。
+- **线程安全**：`Splitter` 实例**是线程安全的**，但是不应在多个 goroutine 中并发调用 `RunSplit()`，因为它只能调用一次。
 - **内存拷贝**：每次 flush 时会对 chunk 数据做完整拷贝，确保回调函数可安全持有数据。
 - **分隔符处理**：chunk 的 `data` **不包含末尾分隔符**，但内部如果有多个 `value` 则每个 `value` 直接会有分隔符。
