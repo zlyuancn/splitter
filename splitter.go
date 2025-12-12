@@ -25,6 +25,7 @@ type Conf struct {
 	FlushChunkHandler     FlushChunkHandler // flushChunk函数
 	ValueMaxScanSizeLimit int               // value 最大扫描长度限制, 如果扫描一定长度还无法确认一个完整的value则返回错误
 	ValueFilter           ValueFilter       // value过滤器
+	StartChunkSn          int               // 第一个chunkSn
 }
 type splitter struct {
 	chunkSizeLimit    int           // chunk长度限制
@@ -49,6 +50,7 @@ func NewSplitter(conf Conf) *splitter {
 	s := &splitter{
 		chunkSizeLimit:    max(conf.ChunkSizeLimit, MinChunkSizeLimit),
 		chunkBuffer:       bytes.NewBuffer(make([]byte, 0, conf.ChunkSizeLimit)),
+		chunkSn:           conf.StartChunkSn,
 		chunkStartIndex:   0,
 		dataValueIndex:    -1,
 		flushChunkHandler: conf.FlushChunkHandler,

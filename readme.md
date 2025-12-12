@@ -117,6 +117,7 @@ type Conf struct {
     FlushChunkHandler     FlushChunkHandler // 块处理回调函数（必提供或使用默认）
     ValueMaxScanSizeLimit int               // 单个 value 最大扫描长度（防 DoS），默认最小为 4096
     ValueFilter           ValueFilter       // 可选：对每个 value 进行过滤或转换
+    StartChunkSn          int               // 第一个chunkSn    
 }
 ```
 
@@ -128,7 +129,7 @@ type Conf struct {
 type FlushChunkHandler func(chunkSn int, startIdx, endIdx int64, data []byte)
 ```
 
-- `chunkSn`：块序号（从 0 开始递增）
+- `chunkSn`：块序号（默认从 0 开始递增）
 - `startIdx`：该块中第一个 value 的全局索引（从 0 开始）
 - `endIdx`：该块中最后一个 value 的全局索引
 - `data`：该块的原始字节数据（**不包含末尾分隔符**）
