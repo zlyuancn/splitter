@@ -17,11 +17,11 @@ const (
 )
 
 type FlushChunkArgs struct {
-	ChunkSn     int    // chunk sn
-	StartDataSn int64  // 第一个数据的 sn
-	EndDataSn   int64  // 最后一个数据的sn
-	Data        []byte // 数据
-	ScanByteNum int64  // 已扫描rd的字节数
+	ChunkSn      int    // chunk sn
+	StartValueSn int64  // 第一个 value 的 sn
+	EndValueSn   int64  // 最后一个 value 的 sn
+	ChunkData    []byte // chunk数据
+	ScanByteNum  int64  // 已扫描rd的字节数
 }
 
 // flush Chunk 函数
@@ -49,8 +49,8 @@ type splitter struct {
 	chunkSizeLimit    int           // chunk长度限制
 	chunkBuffer       *bytes.Buffer // chunk缓冲区
 	chunkSn           int           // chunk 编号
-	chunkStartDataSn  int64         // chunk 的第一个数据的 sn
-	nowDataValueSn    int64         // 当前数据 sn
+	chunkStartValueSn int64         // chunk 的第一个 value 的 sn
+	nextValueSn       int64         // 下一个 value 的 sn
 	flushChunkHandler FlushChunkHandler
 
 	delimiter             []byte      // 分隔符
@@ -69,8 +69,8 @@ func NewSplitter(conf Conf) Splitter {
 		chunkSizeLimit:    max(conf.ChunkSizeLimit, MinChunkSizeLimit),
 		chunkBuffer:       bytes.NewBuffer(make([]byte, 0, conf.ChunkSizeLimit)),
 		chunkSn:           0,
-		chunkStartDataSn:  0,
-		nowDataValueSn:    -1,
+		chunkStartValueSn: 0,
+		nextValueSn:       0,
 		flushChunkHandler: conf.FlushChunkHandler,
 
 		delimiter:             conf.Delim,
@@ -113,19 +113,19 @@ func (s *splitter) RunSplit(rd io.Reader) error {
 				chunkSn := s.chunkSn
 				s.chunkSn++
 				s.flushChunk(&FlushChunkArgs{
-					ChunkSn:     chunkSn,
-					StartDataSn: s.chunkStartDataSn,
-					EndDataSn:   s.nowDataValueSn,
-					Data:        s.chunkBuffer.Bytes(),
-					ScanByteNum: vr.GetScanByteNum(),
+					ChunkSn:      chunkSn,
+					StartValueSn: s.chunkStartValueSn,
+					EndValueSn:   s.nextValueSn - 1,
+					ChunkData:    s.chunkBuffer.Bytes(),
+					ScanByteNum:  vr.GetScanByteNum(),
 				})
 				s.chunkBuffer.Reset()
-				s.chunkStartDataSn = s.nowDataValueSn + 1
+				s.chunkStartValueSn = s.nextValueSn
 			}
 
 			s.chunkBuffer.Write(value)
 			s.chunkBuffer.Write(s.delimiter) // 写入值后要写入分隔符
-			s.nowDataValueSn++
+			s.nextValueSn++
 		}
 
 		// 在 EOF 时处理最后一个 chunk
@@ -134,11 +134,11 @@ func (s *splitter) RunSplit(rd io.Reader) error {
 				chunkSn := s.chunkSn
 				s.chunkSn++
 				s.flushChunk(&FlushChunkArgs{
-					ChunkSn:     chunkSn,
-					StartDataSn: s.chunkStartDataSn,
-					EndDataSn:   s.nowDataValueSn,
-					Data:        s.chunkBuffer.Bytes(),
-					ScanByteNum: vr.GetScanByteNum(),
+					ChunkSn:      chunkSn,
+					StartValueSn: s.chunkStartValueSn,
+					EndValueSn:   s.nextValueSn - 1,
+					ChunkData:    s.chunkBuffer.Bytes(),
+					ScanByteNum:  vr.GetScanByteNum(),
 				})
 				s.chunkBuffer.Reset()
 			}
@@ -150,13 +150,13 @@ func (s *splitter) RunSplit(rd io.Reader) error {
 
 func (s *splitter) flushChunk(args *FlushChunkArgs) {
 	// 这里目的是为了去掉chunk中最后的分隔符
-	src := args.Data[:len(args.Data)-len(s.delimiter)]
+	src := args.ChunkData[:len(args.ChunkData)-len(s.delimiter)]
 
 	// 创建副本
 	bs := make([]byte, len(src))
 	copy(bs, src)
 
-	args.Data = bs
+	args.ChunkData = bs
 	s.flushChunkHandler(args)
 }
 
@@ -165,5 +165,5 @@ func (s *splitter) Stop() {
 }
 
 func defaultFlushChunkHandler(args *FlushChunkArgs) {
-	fmt.Println(args.ChunkSn, args.StartDataSn, args.EndDataSn, string(args.Data))
+	fmt.Println(args.ChunkSn, args.StartValueSn, args.EndValueSn, string(args.ChunkData))
 }

@@ -13,7 +13,7 @@ func main() {
 		Delim:          []byte(","),
 		ChunkSizeLimit: 16,
 		FlushChunkHandler: func(args *splitter.FlushChunkArgs) {
-			println("Chunk", args.ChunkSn, "values", args.StartDataSn, "to", args.EndDataSn, ":", string(args.Data))
+			println("Chunk", args.ChunkSn, "values", args.StartValueSn, "to", args.EndValueSn, ":", string(args.ChunkData))
 		},
 		ValueFilter: func(v []byte) []byte {
 			if string(v) == "banana" {
