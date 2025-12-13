@@ -151,11 +151,12 @@ func (s *splitter) RunSplit(rd io.Reader) error {
 func (s *splitter) flushChunk(args *FlushChunkArgs) {
 	// 这里目的是为了去掉chunk中最后的分隔符
 	src := args.Data[:len(args.Data)-len(s.delimiter)]
-	bs := make([]byte, len(src))
 
 	// 创建副本
+	bs := make([]byte, len(src))
 	copy(bs, src)
 
+	args.Data = bs
 	s.flushChunkHandler(args)
 }
 
