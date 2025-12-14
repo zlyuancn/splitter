@@ -51,6 +51,8 @@
 
 ## 使用示例
 
+[传送门](./example/)
+
 ```go
 package main
 
