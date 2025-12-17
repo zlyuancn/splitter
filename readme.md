@@ -100,7 +100,7 @@ Chunk 1 values 3 to 3 : cherry
 
 ```go
 type Splitter interface {
-    // 从 io.Reader 中读取数据，按配置进行分片和处理。
+    // 从 io.Reader 中读取数据，按配置进行分片和处理。阻塞等待直到完成或者退出或者出错
     // 仅允许调用一次，重复调用将返回错误。
 	RunSplit(rd io.Reader) error
 
