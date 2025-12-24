@@ -119,6 +119,7 @@ type Conf struct {
     FlushChunkHandler     FlushChunkHandler // 块处理回调函数（必提供或使用默认）
     ValueMaxScanSizeLimit int               // 单个 value 最大扫描长度（防 DoS），默认最小为 4096
     ValueFilter           ValueFilter       // 可选：对每个 value 进行过滤或转换
+    RateLimit             int               // 限速器, 限制每秒扫描字节数
 }
 ```
 

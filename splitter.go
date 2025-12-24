@@ -44,6 +44,7 @@ type Conf struct {
 	FlushChunkHandler     FlushChunkHandler // flushChunk函数
 	ValueMaxScanSizeLimit int               // value 最大扫描长度限制, 如果扫描一定长度还无法确认一个完整的value则返回错误
 	ValueFilter           ValueFilter       // value过滤器
+	RateLimit             int               // 限速器, 限制每秒扫描字节数
 }
 type splitter struct {
 	chunkSizeLimit    int           // chunk长度限制
@@ -56,6 +57,7 @@ type splitter struct {
 	delimiter             []byte      // 分隔符
 	valueMaxScanSizeLimit int         // value 最大扫描长度限制
 	valueFilter           ValueFilter // value过滤器
+	rateLimit             int         // 限速器, 限制每秒扫描字节数
 
 	started int32 // 是否已启动
 	stopped int32 // 是否已停止
@@ -76,6 +78,7 @@ func NewSplitter(conf Conf) Splitter {
 		delimiter:             conf.Delim,
 		valueMaxScanSizeLimit: max(conf.ValueMaxScanSizeLimit, MinValueMaxScanSizeLimit),
 		valueFilter:           conf.ValueFilter,
+		rateLimit:             conf.RateLimit,
 	}
 	if s.flushChunkHandler == nil {
 		s.flushChunkHandler = defaultFlushChunkHandler
@@ -91,7 +94,7 @@ func (s *splitter) RunSplit(rd io.Reader) error {
 	}
 
 	// 创建值读取器
-	vr := NewValueReader(rd, s.delimiter, s.valueMaxScanSizeLimit)
+	vr := NewValueReaderAndLimiter(rd, s.delimiter, s.valueMaxScanSizeLimit, s.rateLimit)
 
 	for {
 		if atomic.LoadInt32(&s.stopped) > 0 {

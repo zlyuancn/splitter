@@ -3,8 +3,12 @@ package splitter
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"io"
+	"math"
+
+	"golang.org/x/time/rate"
 )
 
 var ErrValueReaderMaxScanSizeLimit = errors.New("ValueReader valueMaxScanSizeLimit err")
@@ -26,6 +30,8 @@ type valueReader struct {
 
 	scanByteNum int64 // 已扫描字节数
 	isEOF       bool
+
+	limiter *rate.Limiter // 限速器
 }
 
 func (v *valueReader) GetScanByteNum() int64 {
@@ -44,6 +50,15 @@ func (v *valueReader) Next() ([]byte, error) {
 	last := v.delim[delimLen-1]
 
 	for {
+		// 限速
+		if v.limiter != nil {
+			err := v.limiter.Wait(context.Background())
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// 读取1字节
 		b, err := v.reader.ReadByte()
 		if err == io.EOF {
 			v.isEOF = true
@@ -70,16 +85,27 @@ func (v *valueReader) Next() ([]byte, error) {
 	}
 }
 
+// 创建一个值读取器
 func NewValueReader(rd io.Reader, delim []byte, valueMaxScanSizeLimit int) ValueReader {
+	return NewValueReaderAndLimiter(rd, delim, valueMaxScanSizeLimit, 0)
+}
+
+// 创建一个值读取器, 限制其读取速率
+func NewValueReaderAndLimiter(rd io.Reader, delim []byte, valueMaxScanSizeLimit int, rateLimit int) ValueReader {
 	if len(delim) == 0 {
 		panic("delim must not be empty")
 	}
 
 	bufLen := max(valueMaxScanSizeLimit, MinValueMaxScanSizeLimit)
-	return &valueReader{
+	vr := &valueReader{
 		reader:                bufio.NewReader(rd),
 		readBuffer:            make([]byte, bufLen),
 		delim:                 delim,
 		valueMaxScanSizeLimit: bufLen,
 	}
+	if rateLimit > 0 {
+		bursts := math.Max(float64(int(rateLimit)/10), 1) // 爆发量为上限的十分之一
+		vr.limiter = rate.NewLimiter(rate.Limit(rateLimit), int(bursts))
+	}
+	return vr
 }
