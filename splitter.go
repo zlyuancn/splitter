@@ -101,7 +101,8 @@ func (s *splitter) RunSplit(rd io.Reader) error {
 			return ErrSplitterIsStopped
 		}
 
-		value, err := vr.Next() // 获取下一个值
+		scanByteNum := vr.GetScanByteNum() // 当前已扫描的字节数
+		value, err := vr.Next()            // 获取下一个值
 		if err != nil && err != io.EOF {
 			return err
 		}
@@ -120,7 +121,7 @@ func (s *splitter) RunSplit(rd io.Reader) error {
 					StartValueSn: s.chunkStartValueSn,
 					EndValueSn:   s.nextValueSn - 1,
 					ChunkData:    s.chunkBuffer.Bytes(),
-					ScanByteNum:  vr.GetScanByteNum(),
+					ScanByteNum:  scanByteNum, // 这个值应该是获取当前value之前扫描的字节数
 				})
 				s.chunkBuffer.Reset()
 				s.chunkStartValueSn = s.nextValueSn
